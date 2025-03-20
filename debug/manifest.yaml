@@ -4,6 +4,7 @@ metadata:
   name: debug
   namespace: expense
 spec:
-  container: 
+  containers:
+  # docker run -d --name nginx nginx
   - name: debug
     image: karthikraj98/debug:v1
