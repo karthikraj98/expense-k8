@@ -1,33 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: frontend
   namespace: expense
   labels:
-    app: backend
-    tier: api
+    app: frontend
+    tier: web
     project: expense
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: backend
-      tier: api
+      app: frontend
+      tier: web
       project: expense
   template:
     metadata:
       labels:
-        app: backend
-        tier: api
+        app: frontend
+        tier: web
         project: expense
     spec:
-      initContainers:
-      - name: mysql-check
-        image: busybox:1.28
-        command: ['sh', '-c', "until nslookup mysql; do echo waiting for myservice; sleep 2; done"]
       containers:
-      - name: backend
-        image: joindevops/backend:v1
+      - name: frontend
+        image: joindevops/frontend:v1
         resources:
           requests:
             cpu: 100m
@@ -36,47 +32,46 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-        envFrom:
-        - configMapRef:
-            name: backend
-        readinessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 3
-          periodSeconds: 3
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: frontend
+          items:
+            - key: nginx.conf
+              path: nginx.conf
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: backend
+  name: frontend
   namespace: expense
 spec:
+  #type: LoadBalancer
   selector:
-    app: backend
-    tier: api
+    app: frontend
+    tier: web
     project: expense
   ports:
-  - name: backend-port
+  - name: frontend-port
     protocol: TCP
-    port: 8080 # service port
-    targetPort: 8080 # container port
+    port: 80 # service port
+    targetPort: 80 # container port
 ---
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
- name: backend
+ name: frontend
  namespace: expense
 spec:
  scaleTargetRef:
    apiVersion: apps/v1
    kind: Deployment
-   name: backend
+   name: frontend
  minReplicas: 1
  maxReplicas: 10
  targetCPUUtilizationPercentage: 15 # usually 75 in real environment
